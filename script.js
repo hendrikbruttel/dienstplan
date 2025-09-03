@@ -19,11 +19,7 @@
   const closest = (el, sel)=>{ while(el && el.nodeType===1){ if(el.matches(sel)) return el; el=el.parentElement; } return null; };
   let listenersInstalled=false;
   let selectedPersonId=null;
-  let lastRecord=null;
-  let lastMappings=null;
   let lastRowId=null;
-  let lastTableId=null;
-  let personColId='Person';
   let tableApi=null;
   let lastSave=null;
   const getRefRowId = (val)=>{
@@ -44,61 +40,19 @@
       return;
     }
 
-    const isRefCol = !!(lastMappings && lastMappings.columns && lastMappings.columns.Person && typeof lastMappings.columns.Person.type === 'string' && lastMappings.columns.Person.type.toLowerCase().startsWith('ref'));
-    // Try a typed Reference value first (Grist typed value encoding for Ref), then fall back to plain integer
-    const refTyped = isRefCol ? ["L", refId] : refId;
-    // 1) getTable().update bevorzugen (stabil, entspricht deinem Beispiel)
+    // Nur getTable().update verwenden
     try{
       if(!tableApi && typeof GR.getTable === 'function'){
         tableApi = GR.getTable();
       }
       if(tableApi && typeof tableApi.update === 'function' && lastRowId){
         if(lastSave){ return; }
-        const fields={}; fields['Person']=refTyped;
-        lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
-        return lastSave;
-      }
-    }catch(e){ console.warn('getTable().update fehlgeschlagen:', e); }
-    // Fallback: versuche dasselbe Update mit einfachem Integer (für Ref-Spalten akzeptiert)
-    try{
-      if(tableApi && typeof tableApi.update === 'function' && lastRowId){
-        if(lastSave){ return; }
         const fields={}; fields['Person']=refId;
         lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
         return lastSave;
       }
-    }catch(e){ console.warn('getTable().update (Integer) fehlgeschlagen:', e); }
-    // 2) Doc API wie im Beispiel (falls benötigt)
-    try{
-      const docApi = GR.docApi;
-      if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
-        const patch = {}; patch[personColId] = refTyped;
-        return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
-      }
-    }catch(e){ console.warn('applyUserActions fehlgeschlagen:', e); }
-    // Fallback: applyUserActions mit Integer
-    try{
-      const docApi = GR.docApi;
-      if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
-        const patch = {}; patch[personColId] = refId;
-        return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
-      }
-    }catch(e){ console.warn('applyUserActions (Integer) fehlgeschlagen:', e); }
-    // 3) setCellValue (falls verfügbar)
-    if(typeof GR.setCellValue === 'function'){
-      return GR.setCellValue('Person', refTyped);
-    }
-    // 4) Weitere (ältere) APIs
-    if(typeof GR.setValue === 'function'){
-      return GR.setValue('Person', refTyped);
-    }
-    if(typeof GR.update === 'function'){
-      return GR.update({ Person: refTyped });
-    }
-    if(typeof GR.updateRecord === 'function'){
-      return GR.updateRecord({ Person: refTyped });
-    }
-    console.warn('Kein Schreibweg verfügbar. Bitte prüfe: Access=Full, Mapping der Spalte Person, ausgewählte Zeile, mappings.tableId und columns.Person.colId.');
+    }catch(e){ console.warn('getTable().update fehlgeschlagen:', e); }
+    console.warn('Kein Schreibweg verfügbar. Bitte prüfe: Access=Full und ausgewählte Zeile.');
   }
 
   // ---------- checks ----------
@@ -180,11 +134,7 @@
     // aktuell gespeicherte Auswahl (falls vorhanden) lesen
     const currentPersonRaw = (mapped && mapped.Person != null) ? mapped.Person : (record.Person != null ? record.Person : null);
     selectedPersonId = getRefRowId(currentPersonRaw);
-    lastRecord = record;
-    lastMappings = mappings;
     lastRowId = (record && (record.id ?? record._rowId ?? record._id)) || null;
-    lastTableId = (mappings && (mappings.tableId || mappings.table?.id || mappings.table)) || null;
-    personColId = (mappings && mappings.columns && (mappings.columns.Person?.colId ?? mappings.columns.Person?.id ?? mappings.columns.Person)) || 'Person';
     if(GRIST && typeof GRIST.getTable==='function'){ tableApi = GRIST.getTable(); }
 
     // Oben: Info + Checks
@@ -198,12 +148,13 @@
         const el = closest(ev.target, '[data-person-id]');
         if(!el) return;
         const id = el.getAttribute('data-person-id');
+        const idNum = parseInt(String(id), 10);
         // Kein Schreibvorgang wenn identische Auswahl
-        if(String(id) === String(selectedPersonId)){
+        if(String(idNum) === String(selectedPersonId)){
           return;
         }
-        writePersonId(id);
-        selectedPersonId = String(id);
+        writePersonId(idNum);
+        selectedPersonId = idNum;
         // leichte visuelle Rückmeldung sofort
         tableBox.querySelectorAll('.person-cell--selected').forEach(n=>n.classList.remove('person-cell--selected'));
         el.classList.add('person-cell--selected');
