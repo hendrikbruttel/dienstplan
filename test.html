@@ -17,11 +17,18 @@
           _cb: null,
           ready(opts){ console.log('grist.ready', opts); },
           onRecord(cb){ this._cb = cb; console.log('grist.onRecord registered'); setTimeout(()=>this._emit(), 0); },
-          mapColumnNames(record, {mappings}){ return record; }
+          mapColumnNames(record, {mappings}){ return record; },
+          setCellValue(colName, value){
+            console.log('setCellValue', colName, value);
+            if(colName==='Person'){
+              this._record.Person = value;
+              this._emit();
+            }
+          }
         };
         grist._emit = function(){
           if(!this._cb) return;
-          const record = {
+          const record = this._record = {
             InfoJSON: JSON.stringify({ Schicht: 'Früh', Datum: '2025-09-03', Standort: 'Berlin' }),
             Checks: JSON.stringify({
               plan_complete: { applicable: true, active: true, display: 'Plan vollständig' },
@@ -29,18 +36,19 @@
             }),
             TableJSON: JSON.stringify([
               {
-                Person: { display: 'Max Mustermann', status: 1, highlight: true },
+                Person: { id: 101, display: 'Max Mustermann', status: 1, highlight: true },
                 Anwesenheit: { display: 'Ja', status: 1 },
                 AnwesenheitFolgetag: { display: 'Nein', status: 0 },
                 Team: { display: 'A', status: 1 }
               },
               {
-                Person: { display: 'Erika Muster', status: 0.5, highlight: 'blue' },
+                Person: { id: 202, display: 'Erika Muster', status: 0.5, highlight: 'blue' },
                 Anwesenheit: { display: 'Teilzeit', status: 0.5 },
                 AnwesenheitFolgetag: { display: 'Ja', status: 1 },
                 Team: { display: 'B', status: 1 }
               }
-            ])
+            ]),
+            Person: this._record?.Person ?? null
           };
           const mappings = {}; // nicht benötigt im Test
           this._cb(record, mappings);
@@ -50,4 +58,3 @@
     <script src="script.js"></script>
   </body>
 </html>
-

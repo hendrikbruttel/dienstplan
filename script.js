@@ -16,6 +16,9 @@
   };
   const safeJSON=(v,fallback)=>{ if(v==null) return fallback; if(typeof v==="string"){ const t=v.trim(); if(!t) return fallback; try{ return JSON.parse(t);}catch(e){ console.warn("JSON parse error:",e,v); return fallback; } } if(typeof v==="object") return v; return fallback; };
   const debounce=(fn, wait=16)=>{ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); }; };
+  const closest = (el, sel)=>{ while(el && el.nodeType===1){ if(el.matches(sel)) return el; el=el.parentElement; } return null; };
+  let listenersInstalled=false;
+  let selectedPersonId=null;
 
   // ---------- checks ----------
   function renderChecks(checksObj){
@@ -59,7 +62,11 @@
           const name = hl==="blue" ? `<span class="name-hl-blue">${escapeHTML(disp)}</span>` :
                        hl ? `<span class="name-hl">${escapeHTML(disp)}</span>` :
                        `<span class="name-default">${escapeHTML(disp)}</span>`;
-          tbody+=`<td class="text-left">${dot(b)}${name}</td>`;
+          const clickable = (b==="green" && cell.id!=null);
+          const sel = (cell.id!=null && String(cell.id)===String(selectedPersonId));
+          const cellCls = `person-cell${clickable?" person-cell--selectable":""}${sel?" person-cell--selected":""}`;
+          const attrs = clickable? ` role="button" tabindex="0" aria-label="Person auswählen" data-person-id="${escapeHTML(cell.id)}"` : "";
+          tbody+=`<td class="text-left"><span class="${cellCls}"${attrs}>${dot(b)}${name}</span></td>`;
         }else{
           const b=bucket(st);
           tbody+=`<td>${badge(b,disp)}</td>`;
@@ -89,25 +96,56 @@
     const infoVal  = safeJSON(infoRaw,  {});
     const tableVal = safeJSON(tableRaw, []);
     const checksVal= safeJSON(checksRaw,{});
+    // aktuell gespeicherte Auswahl (falls vorhanden) lesen
+    selectedPersonId = mapped && mapped.Person != null ? mapped.Person : (record.Person ?? null);
 
     // Oben: Info + Checks
     top.innerHTML = renderInfo(infoVal) + `<div class="card card--min"><div class="hdr">Checks</div><div class="flex-1">${renderChecks(checksVal)}</div></div>`;
     // Unten: Tabelle
     tableBox.innerHTML = renderTable(tableVal);
+
+    if(!listenersInstalled){
+      listenersInstalled=true;
+      tableBox.addEventListener('click', ev=>{
+        const el = closest(ev.target, '[data-person-id]');
+        if(!el) return;
+        const id = el.getAttribute('data-person-id');
+        const GR = window.grist;
+        if(GR && typeof GR.setCellValue === 'function'){
+          GR.setCellValue('Person', id);
+        }else{
+          console.warn('grist.setCellValue nicht verfügbar; Auswahl nur lokal markiert');
+        }
+        selectedPersonId = id;
+        // leichte visuelle Rückmeldung sofort
+        const parentCell = closest(el, 'td');
+        if(parentCell){
+          parentCell.querySelectorAll('.person-cell').forEach(n=>n.classList.remove('person-cell--selected'));
+          el.classList.add('person-cell--selected');
+        }
+      });
+      tableBox.addEventListener('keydown', ev=>{
+        if(ev.key!=='Enter' && ev.key!==' ') return;
+        const el = closest(ev.target, '[data-person-id]');
+        if(!el) return;
+        ev.preventDefault();
+        el.click();
+      });
+    }
   }
 
   // ---------- grist: Map Columns ----------
   const GRIST = window.grist;
   if(GRIST && typeof GRIST.ready==="function"){
     GRIST.ready({
-      requiredAccess:'read table',
+      requiredAccess:'full',
       columns:[
         {name:'InfoJSON',  title:'Info JSON (Objekt)', type:'Any', optional:false},
         {name:'TableJSON', title:'Table JSON (Array)', type:'Any', optional:false},
         {name:'Checks',    title:'Checks (JSON)',      type:'Any', optional:false},
+        {name:'Person',    title:'Person ID (Zielspalte)', type:'Any', optional:false},
       ]
     });
     GRIST.onRecord(debounce(render, 16));
   }
 })();
-

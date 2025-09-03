@@ -30,6 +30,7 @@ dienstplan/
    - `InfoJSON` (Any, Objekt)
    - `TableJSON` (Any, Array)
    - `Checks` (Any, Objekt)
+   - `Person` (Int, Zielspalte zum Speichern der Person‑ID)
 
 ## Erwartete Datenformen (vereinfacht)
 
@@ -46,6 +47,7 @@ dienstplan/
 - Styling ohne Inline: Badges/Dots nutzen Klassen (`.badge--{green|yellow|red|gray}`, `.dot--...`).
 - A11y: `lang="de"`, `viewport`, `aria-live` auf dynamischen Bereichen, `<caption class="sr-only">`, `scope="col"` für Tabellenköpfe.
 - Spalten: vollständig dynamisch aus dem JSON, keine feste Reihenfolge im Code.
+- Auswahl: In der „Person“-Spalte sind Einträge mit grünem Status (>= 1) klickbar. Per Klick wird deren `id` in die gemappte Spalte `Person` geschrieben und die Auswahl visuell markiert (Hover + Selected‑Stil).
 
 ## Anpassen
 
@@ -66,3 +68,4 @@ dienstplan/
 - A11y‑Verbesserungen (ARIA‑Live, Caption, `scope="col"`, `lang`, `viewport`).
 - Doppeltes Root‑Setup bereinigt; maßgebliche Dateien liegen unter `dienstplan/`.
 - Lokale Testseite `test.html` ergänzt (Fake‑Grist, Mock‑Daten).
+- Person‑Auswahl: Klick auf grüne Personen setzt deren ID in Spalte `Person` (Mapping erforderlich), Hover/Selected‑Stile.
