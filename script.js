@@ -37,7 +37,7 @@
       }
       if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
         if(lastSave){ return; }
-        const fields={}; fields[personColId]=id;
+        const fields={}; fields[personColId]=String(id);
         lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
         return lastSave;
       }
@@ -46,23 +46,23 @@
     try{
       const docApi = GR.docApi;
       if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
-        const patch = {}; patch[personColId] = id;
+        const patch = {}; patch[personColId] = String(id);
         return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
       }
     }catch(e){ console.warn('applyUserActions fehlgeschlagen:', e); }
     // 3) setCellValue (falls verfügbar)
     if(typeof GR.setCellValue === 'function'){
-      return GR.setCellValue('Person', id);
+      return GR.setCellValue('Person', String(id));
     }
     // 4) Weitere (ältere) APIs
     if(typeof GR.setValue === 'function'){
-      return GR.setValue('Person', id);
+      return GR.setValue('Person', String(id));
     }
     if(typeof GR.update === 'function'){
-      return GR.update({ Person: id });
+      return GR.update({ Person: String(id) });
     }
     if(typeof GR.updateRecord === 'function'){
-      return GR.updateRecord({ Person: id });
+      return GR.updateRecord({ Person: String(id) });
     }
     console.warn('Kein Schreibweg verfügbar. Bitte prüfe: Access=Full, Mapping der Spalte Person, ausgewählte Zeile, mappings.tableId und columns.Person.colId.');
   }
@@ -144,7 +144,7 @@
     const tableVal = safeJSON(tableRaw, []);
     const checksVal= safeJSON(checksRaw,{});
     // aktuell gespeicherte Auswahl (falls vorhanden) lesen
-    selectedPersonId = mapped && mapped.Person != null ? mapped.Person : (record.Person ?? null);
+    selectedPersonId = mapped && mapped.Person != null ? String(mapped.Person) : (record.Person != null ? String(record.Person) : null);
     lastRecord = record;
     lastMappings = mappings;
     lastRowId = (record && (record.id ?? record._rowId ?? record._id)) || null;
@@ -168,7 +168,7 @@
           return;
         }
         writePersonId(id);
-        selectedPersonId = id;
+        selectedPersonId = String(id);
         // leichte visuelle Rückmeldung sofort
         tableBox.querySelectorAll('.person-cell--selected').forEach(n=>n.classList.remove('person-cell--selected'));
         el.classList.add('person-cell--selected');
