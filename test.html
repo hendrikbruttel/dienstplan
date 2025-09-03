@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dienstplan Widget – Test</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="top" class="top" aria-live="polite"></div>
+    <div id="tableBox" class="tableBox" aria-live="polite"></div>
+
+    <script>
+      // Minimaler Fake für die Grist-API, um lokal zu testen
+      (function(){
+        const grist = window.grist = {
+          _cb: null,
+          ready(opts){ console.log('grist.ready', opts); },
+          onRecord(cb){ this._cb = cb; console.log('grist.onRecord registered'); setTimeout(()=>this._emit(), 0); },
+          mapColumnNames(record, {mappings}){ return record; }
+        };
+        grist._emit = function(){
+          if(!this._cb) return;
+          const record = {
+            InfoJSON: JSON.stringify({ Schicht: 'Früh', Datum: '2025-09-03', Standort: 'Berlin' }),
+            Checks: JSON.stringify({
+              plan_complete: { applicable: true, active: true, display: 'Plan vollständig' },
+              has_missing:   { applicable: true, active: false, display: 'Fehlende Einträge' }
+            }),
+            TableJSON: JSON.stringify([
+              {
+                Person: { display: 'Max Mustermann', status: 1, highlight: true },
+                Anwesenheit: { display: 'Ja', status: 1 },
+                AnwesenheitFolgetag: { display: 'Nein', status: 0 },
+                Team: { display: 'A', status: 1 }
+              },
+              {
+                Person: { display: 'Erika Muster', status: 0.5, highlight: 'blue' },
+                Anwesenheit: { display: 'Teilzeit', status: 0.5 },
+                AnwesenheitFolgetag: { display: 'Ja', status: 1 },
+                Team: { display: 'B', status: 1 }
+              }
+            ])
+          };
+          const mappings = {}; // nicht benötigt im Test
+          this._cb(record, mappings);
+        };
+      })();
+    </script>
+    <script src="script.js"></script>
+  </body>
+</html>
+
