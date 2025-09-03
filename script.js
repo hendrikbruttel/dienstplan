@@ -26,6 +26,13 @@
   let personColId='Person';
   let tableApi=null;
   let lastSave=null;
+  const getRefRowId = (val)=>{
+    if(val==null) return null;
+    if(Array.isArray(val) && val.length>=2 && val[0]==='L') return val[1];
+    if(typeof val==='number' && Number.isFinite(val)) return val;
+    const x = parseInt(String(val), 10);
+    return Number.isFinite(x) ? x : null;
+  };
 
   async function writePersonId(id){
     const GR = window.grist;
@@ -45,18 +52,18 @@
       if(!tableApi && typeof GR.getTable === 'function'){
         tableApi = GR.getTable();
       }
-      if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
+      if(tableApi && typeof tableApi.update === 'function' && lastRowId){
         if(lastSave){ return; }
-        const fields={}; fields[personColId]=refTyped;
+        const fields={}; fields['Person']=refTyped;
         lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
         return lastSave;
       }
     }catch(e){ console.warn('getTable().update fehlgeschlagen:', e); }
     // Fallback: versuche dasselbe Update mit einfachem Integer (für Ref-Spalten akzeptiert)
     try{
-      if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
+      if(tableApi && typeof tableApi.update === 'function' && lastRowId){
         if(lastSave){ return; }
-        const fields={}; fields[personColId]=refId;
+        const fields={}; fields['Person']=refId;
         lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
         return lastSave;
       }
@@ -171,7 +178,8 @@
     const tableVal = safeJSON(tableRaw, []);
     const checksVal= safeJSON(checksRaw,{});
     // aktuell gespeicherte Auswahl (falls vorhanden) lesen
-    selectedPersonId = mapped && mapped.Person != null ? String(mapped.Person) : (record.Person != null ? String(record.Person) : null);
+    const currentPersonRaw = (mapped && mapped.Person != null) ? mapped.Person : (record.Person != null ? record.Person : null);
+    selectedPersonId = getRefRowId(currentPersonRaw);
     lastRecord = record;
     lastMappings = mappings;
     lastRowId = (record && (record.id ?? record._rowId ?? record._id)) || null;
