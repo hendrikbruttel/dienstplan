@@ -19,6 +19,39 @@
   const closest = (el, sel)=>{ while(el && el.nodeType===1){ if(el.matches(sel)) return el; el=el.parentElement; } return null; };
   let listenersInstalled=false;
   let selectedPersonId=null;
+  let lastRecord=null;
+  let lastMappings=null;
+
+  async function writePersonId(id){
+    const GR = window.grist;
+    if(!GR){ console.warn('grist API nicht vorhanden'); return; }
+    // 1) Bevorzugt: setCellValue (neue API)
+    if(typeof GR.setCellValue === 'function'){
+      return GR.setCellValue('Person', id);
+    }
+    // 2) Alternative Namen (ältere Widgets/APIs)
+    if(typeof GR.setValue === 'function'){
+      return GR.setValue('Person', id);
+    }
+    if(typeof GR.update === 'function'){
+      return GR.update({ Person: id });
+    }
+    if(typeof GR.updateRecord === 'function'){
+      return GR.updateRecord({ Person: id });
+    }
+    // 3) Doc API Fallback
+    try{
+      const docApi = GR.docApi;
+      const rowId = lastRecord && lastRecord.id;
+      const tableId = lastMappings && (lastMappings.tableId || lastMappings.tableIdRef || lastMappings.tableRef || lastMappings.table);
+      const col = lastMappings && lastMappings.columns && (lastMappings.columns.Person || 'Person');
+      if(docApi && typeof docApi.applyUserActions === 'function' && rowId && tableId && col){
+        // Versuche UpdateRecord – col kann Name oder Ref sein, je nach Mapping
+        return docApi.applyUserActions([[ 'UpdateRecord', tableId, rowId, { [col]: id } ]]);
+      }
+    }catch(e){ console.warn('Fallback via docApi.applyUserActions fehlgeschlagen:', e); }
+    console.warn('Kein Schreibweg verfügbar (setCellValue/update/docApi). Auswahl nur lokal markiert.');
+  }
 
   // ---------- checks ----------
   function renderChecks(checksObj){
@@ -98,6 +131,8 @@
     const checksVal= safeJSON(checksRaw,{});
     // aktuell gespeicherte Auswahl (falls vorhanden) lesen
     selectedPersonId = mapped && mapped.Person != null ? mapped.Person : (record.Person ?? null);
+    lastRecord = record;
+    lastMappings = mappings;
 
     // Oben: Info + Checks
     top.innerHTML = renderInfo(infoVal) + `<div class="card card--min"><div class="hdr">Checks</div><div class="flex-1">${renderChecks(checksVal)}</div></div>`;
@@ -110,19 +145,15 @@
         const el = closest(ev.target, '[data-person-id]');
         if(!el) return;
         const id = el.getAttribute('data-person-id');
-        const GR = window.grist;
-        if(GR && typeof GR.setCellValue === 'function'){
-          GR.setCellValue('Person', id);
-        }else{
-          console.warn('grist.setCellValue nicht verfügbar; Auswahl nur lokal markiert');
+        // Kein Schreibvorgang wenn identische Auswahl
+        if(String(id) === String(selectedPersonId)){
+          return;
         }
+        writePersonId(id);
         selectedPersonId = id;
         // leichte visuelle Rückmeldung sofort
-        const parentCell = closest(el, 'td');
-        if(parentCell){
-          parentCell.querySelectorAll('.person-cell').forEach(n=>n.classList.remove('person-cell--selected'));
-          el.classList.add('person-cell--selected');
-        }
+        tableBox.querySelectorAll('.person-cell--selected').forEach(n=>n.classList.remove('person-cell--selected'));
+        el.classList.add('person-cell--selected');
       });
       tableBox.addEventListener('keydown', ev=>{
         if(ev.key!=='Enter' && ev.key!==' ') return;
