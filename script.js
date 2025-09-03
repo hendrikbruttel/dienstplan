@@ -30,6 +30,16 @@
   async function writePersonId(id){
     const GR = window.grist;
     if(!GR){ console.warn('grist API nicht vorhanden'); return; }
+    // Normalize to integer rowId for Reference columns
+    const refId = (id==null) ? null : (typeof id === 'number' ? id : parseInt(String(id), 10));
+    if(refId==null || !Number.isFinite(refId)){
+      console.warn('Ungültige Personen-ID für Reference:', id);
+      return;
+    }
+
+    const isRefCol = !!(lastMappings && lastMappings.columns && lastMappings.columns.Person && typeof lastMappings.columns.Person.type === 'string' && lastMappings.columns.Person.type.toLowerCase().startsWith('ref'));
+    // Try a typed Reference value first (Grist typed value encoding for Ref), then fall back to plain integer
+    const refTyped = isRefCol ? ["L", refId] : refId;
     // 1) getTable().update bevorzugen (stabil, entspricht deinem Beispiel)
     try{
       if(!tableApi && typeof GR.getTable === 'function'){
@@ -37,32 +47,49 @@
       }
       if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
         if(lastSave){ return; }
-        const fields={}; fields[personColId]=Number(id);
+        const fields={}; fields[personColId]=refTyped;
         lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
         return lastSave;
       }
     }catch(e){ console.warn('getTable().update fehlgeschlagen:', e); }
+    // Fallback: versuche dasselbe Update mit einfachem Integer (für Ref-Spalten akzeptiert)
+    try{
+      if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
+        if(lastSave){ return; }
+        const fields={}; fields[personColId]=refId;
+        lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
+        return lastSave;
+      }
+    }catch(e){ console.warn('getTable().update (Integer) fehlgeschlagen:', e); }
     // 2) Doc API wie im Beispiel (falls benötigt)
     try{
       const docApi = GR.docApi;
       if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
-        const patch = {}; patch[personColId] = String(id);
+        const patch = {}; patch[personColId] = refTyped;
         return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
       }
     }catch(e){ console.warn('applyUserActions fehlgeschlagen:', e); }
+    // Fallback: applyUserActions mit Integer
+    try{
+      const docApi = GR.docApi;
+      if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
+        const patch = {}; patch[personColId] = refId;
+        return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
+      }
+    }catch(e){ console.warn('applyUserActions (Integer) fehlgeschlagen:', e); }
     // 3) setCellValue (falls verfügbar)
     if(typeof GR.setCellValue === 'function'){
-      return GR.setCellValue('Person', String(id));
+      return GR.setCellValue('Person', refTyped);
     }
     // 4) Weitere (ältere) APIs
     if(typeof GR.setValue === 'function'){
-      return GR.setValue('Person', String(id));
+      return GR.setValue('Person', refTyped);
     }
     if(typeof GR.update === 'function'){
-      return GR.update({ Person: String(id) });
+      return GR.update({ Person: refTyped });
     }
     if(typeof GR.updateRecord === 'function'){
-      return GR.updateRecord({ Person: String(id) });
+      return GR.updateRecord({ Person: refTyped });
     }
     console.warn('Kein Schreibweg verfügbar. Bitte prüfe: Access=Full, Mapping der Spalte Person, ausgewählte Zeile, mappings.tableId und columns.Person.colId.');
   }
@@ -192,7 +219,8 @@
         {name:'InfoJSON',  title:'Info JSON (Objekt)', type:'Any', optional:false},
         {name:'TableJSON', title:'Table JSON (Array)', type:'Any', optional:false},
         {name:'Checks',    title:'Checks (JSON)',      type:'Any', optional:false},
-        {name:'Person',    title:'Person ID (Zielspalte)', type:'Any', optional:false},
+        // Erwartet eine Referenzspalte; Grist speichert dort die Ziel-RowId
+        {name:'Person',    title:'Person (Referenzziel)', type:'Ref', optional:false},
       ]
     });
     GRIST.onRecord(debounce(render, 16));
