@@ -37,7 +37,7 @@
       }
       if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
         if(lastSave){ return; }
-        const fields={}; fields[personColId]=id;
+        const fields={}; fields[personColId]=Number(id);
         lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
         return lastSave;
       }
