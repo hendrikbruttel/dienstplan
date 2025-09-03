@@ -21,15 +21,26 @@
   let selectedPersonId=null;
   let lastRecord=null;
   let lastMappings=null;
+  let lastRowId=null;
+  let lastTableId=null;
+  let personColId='Person';
 
   async function writePersonId(id){
     const GR = window.grist;
     if(!GR){ console.warn('grist API nicht vorhanden'); return; }
-    // 1) Bevorzugt: setCellValue (neue API)
+    // 1) Doc API wie im Beispiel (bevorzugt, stabil)
+    try{
+      const docApi = GR.docApi;
+      if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
+        const patch = {}; patch[personColId] = id;
+        return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
+      }
+    }catch(e){ console.warn('applyUserActions fehlgeschlagen:', e); }
+    // 2) setCellValue (falls verfügbar)
     if(typeof GR.setCellValue === 'function'){
       return GR.setCellValue('Person', id);
     }
-    // 2) Alternative Namen (ältere Widgets/APIs)
+    // 3) Weitere (ältere) APIs
     if(typeof GR.setValue === 'function'){
       return GR.setValue('Person', id);
     }
@@ -39,18 +50,7 @@
     if(typeof GR.updateRecord === 'function'){
       return GR.updateRecord({ Person: id });
     }
-    // 3) Doc API Fallback
-    try{
-      const docApi = GR.docApi;
-      const rowId = lastRecord && lastRecord.id;
-      const tableId = lastMappings && (lastMappings.tableId || lastMappings.tableIdRef || lastMappings.tableRef || lastMappings.table);
-      const col = lastMappings && lastMappings.columns && (lastMappings.columns.Person || 'Person');
-      if(docApi && typeof docApi.applyUserActions === 'function' && rowId && tableId && col){
-        // Versuche UpdateRecord – col kann Name oder Ref sein, je nach Mapping
-        return docApi.applyUserActions([[ 'UpdateRecord', tableId, rowId, { [col]: id } ]]);
-      }
-    }catch(e){ console.warn('Fallback via docApi.applyUserActions fehlgeschlagen:', e); }
-    console.warn('Kein Schreibweg verfügbar (setCellValue/update/docApi). Auswahl nur lokal markiert.');
+    console.warn('Kein Schreibweg verfügbar. Bitte prüfe: Access=Full, Mapping der Spalte Person, ausgewählte Zeile, mappings.tableId und columns.Person.colId.');
   }
 
   // ---------- checks ----------
@@ -133,6 +133,9 @@
     selectedPersonId = mapped && mapped.Person != null ? mapped.Person : (record.Person ?? null);
     lastRecord = record;
     lastMappings = mappings;
+    lastRowId = (record && (record.id ?? record._rowId ?? record._id)) || null;
+    lastTableId = (mappings && (mappings.tableId || mappings.table?.id || mappings.table)) || null;
+    personColId = (mappings && mappings.columns && (mappings.columns.Person?.colId ?? mappings.columns.Person?.id ?? mappings.columns.Person)) || 'Person';
 
     // Oben: Info + Checks
     top.innerHTML = renderInfo(infoVal) + `<div class="card card--min"><div class="hdr">Checks</div><div class="flex-1">${renderChecks(checksVal)}</div></div>`;
