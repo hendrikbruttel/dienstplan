@@ -18,6 +18,19 @@
           ready(opts){ console.log('grist.ready', opts); },
           onRecord(cb){ this._cb = cb; console.log('grist.onRecord registered'); setTimeout(()=>this._emit(), 0); },
           mapColumnNames(record, {mappings}){ return record; },
+          getTable(){
+            const self=this;
+            return {
+              update({id, fields}){
+                console.log('table.update', id, fields);
+                if(fields && Object.prototype.hasOwnProperty.call(fields, 'Person')){
+                  self._record.Person = fields.Person;
+                }
+                self._emit();
+                return Promise.resolve();
+              }
+            };
+          },
           setCellValue(colName, value){
             console.log('setCellValue', colName, value);
             if(colName==='Person'){

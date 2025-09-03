@@ -24,11 +24,25 @@
   let lastRowId=null;
   let lastTableId=null;
   let personColId='Person';
+  let tableApi=null;
+  let lastSave=null;
 
   async function writePersonId(id){
     const GR = window.grist;
     if(!GR){ console.warn('grist API nicht vorhanden'); return; }
-    // 1) Doc API wie im Beispiel (bevorzugt, stabil)
+    // 1) getTable().update bevorzugen (stabil, entspricht deinem Beispiel)
+    try{
+      if(!tableApi && typeof GR.getTable === 'function'){
+        tableApi = GR.getTable();
+      }
+      if(tableApi && typeof tableApi.update === 'function' && lastRowId && personColId){
+        if(lastSave){ return; }
+        const fields={}; fields[personColId]=id;
+        lastSave = tableApi.update({ id: lastRowId, fields }).finally(()=>{ lastSave=null; });
+        return lastSave;
+      }
+    }catch(e){ console.warn('getTable().update fehlgeschlagen:', e); }
+    // 2) Doc API wie im Beispiel (falls benötigt)
     try{
       const docApi = GR.docApi;
       if(docApi && typeof docApi.applyUserActions === 'function' && lastRowId && lastTableId && personColId){
@@ -36,11 +50,11 @@
         return docApi.applyUserActions([[ 'UpdateRecord', lastTableId, lastRowId, patch ]]);
       }
     }catch(e){ console.warn('applyUserActions fehlgeschlagen:', e); }
-    // 2) setCellValue (falls verfügbar)
+    // 3) setCellValue (falls verfügbar)
     if(typeof GR.setCellValue === 'function'){
       return GR.setCellValue('Person', id);
     }
-    // 3) Weitere (ältere) APIs
+    // 4) Weitere (ältere) APIs
     if(typeof GR.setValue === 'function'){
       return GR.setValue('Person', id);
     }
@@ -136,6 +150,7 @@
     lastRowId = (record && (record.id ?? record._rowId ?? record._id)) || null;
     lastTableId = (mappings && (mappings.tableId || mappings.table?.id || mappings.table)) || null;
     personColId = (mappings && mappings.columns && (mappings.columns.Person?.colId ?? mappings.columns.Person?.id ?? mappings.columns.Person)) || 'Person';
+    if(GRIST && typeof GRIST.getTable==='function'){ tableApi = GRIST.getTable(); }
 
     // Oben: Info + Checks
     top.innerHTML = renderInfo(infoVal) + `<div class="card card--min"><div class="hdr">Checks</div><div class="flex-1">${renderChecks(checksVal)}</div></div>`;
