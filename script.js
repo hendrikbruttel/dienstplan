@@ -97,7 +97,7 @@
           const name = hl==="blue" ? `<span class="name-hl-blue">${escapeHTML(disp)}</span>` :
                        hl ? `<span class="name-hl">${escapeHTML(disp)}</span>` :
                        `<span class="name-default">${escapeHTML(disp)}</span>`;
-          const clickable = (b==="green" && cell.id!=null);
+          const clickable = ((b==="green" || b==="yellow") && cell.id!=null);
           const sel = (cell.id!=null && String(cell.id)===String(selectedPersonId));
           const cellCls = `person-cell${clickable?" person-cell--selectable":""}${sel?" person-cell--selected":""}`;
           const attrs = clickable? ` role="button" tabindex="0" aria-label="Person auswählen" data-person-id="${escapeHTML(cell.id)}"` : "";
@@ -148,9 +148,9 @@
         const el = closest(ev.target, '[data-person-id]');
         if(!el) return;
         const id = el.getAttribute('data-person-id');
-        const idNum = parseInt(String(id), 10);
+        const idNum = id;
         // Kein Schreibvorgang wenn identische Auswahl
-        if(String(idNum) === String(selectedPersonId)){
+        if(idNum === selectedPersonId){
           return;
         }
         writePersonId(idNum);
@@ -175,11 +175,11 @@
     GRIST.ready({
       requiredAccess:'full',
       columns:[
-        {name:'InfoJSON',  title:'Info JSON (Objekt)', type:'Any', optional:false},
-        {name:'TableJSON', title:'Table JSON (Array)', type:'Any', optional:false},
-        {name:'Checks',    title:'Checks (JSON)',      type:'Any', optional:false},
+        {name:'InfoJSON',  title:'Info JSON', type:'Any', optional:false},
+        {name:'TableJSON', title:'Table JSON', type:'Any', optional:false},
+        {name:'Checks',    title:'Checks JSON',      type:'Any', optional:false},
         // Erwartet eine Referenzspalte; Grist speichert dort die Ziel-RowId
-        {name:'Person',    title:'Person (Referenzziel)', type:'Ref', optional:false},
+        {name:'Person',    title:'Person (Reference)', type:'Ref', optional:false},
       ]
     });
     GRIST.onRecord(debounce(render, 16));
