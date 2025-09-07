@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bulk-Paste ➜ Grist (Startdatum + dynamische Tage)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <div class="cfg">
+        <strong>Bulk-Paste ➜ verknüpfte Grist-Tabelle</strong>
+        <label class="date">
+          <span>Startdatum</span>
+          <input type="date" id="startDate" />
+        </label>
+      </div>
+      <div class="actions">
+        <button id="clearGrid" class="secondary" type="button">Raster leeren</button>
+        <button id="pasteBtn" class="secondary" type="button">Aus Zwischenablage einfügen</button>
+        <button id="commitBtn" class="primary" type="button" disabled>Übernehmen</button>
+        <button id="cancelBtn" class="danger" type="button" style="display:none">Abbrechen</button>
+      </div>
+    </header>
+
+    <div id="status" class="status"></div>
+
+    <!-- Fortschrittsleiste -->
+    <div id="progressWrap" class="progress" hidden>
+      <div id="progressBar"
+           class="progress__bar"
+           role="progressbar"
+           aria-valuemin="0"
+           aria-valuemax="100"
+           aria-valuenow="0"></div>
+    </div>
+
+    <div id="gridWrap" class="grid-wrap" tabindex="0">
+      <table id="grid" class="grid" aria-label="Paste-Grid">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script defer src="script.js"></script>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+</body>
+</html>

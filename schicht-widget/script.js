@@ -164,7 +164,7 @@
         const el = closest(ev.target, '[data-person-id]');
         if(!el) return;
         ev.preventDefault();
-        el.click();
+        el.click();W3<QA<a
       });
     }
   }
