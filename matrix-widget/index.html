@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dienstplanung – Matrix (Grist Custom Widget)</title>
+  
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+
+</head>
+<body>
+  <div class="wrap">
+    <div class="toolbar">
+      <label class="label" for="groupSelect">Dienstgruppe:</label>
+      <select id="groupSelect"></select>
+
+      <span class="label" style="margin-left:16px">Team:</span>
+      <select id="teamFilter"></select>
+
+      <span class="label" style="margin-left:16px">Sortierung:</span>
+      <select id="sortSelect">
+        <option value="team">Team</option>
+        <option value="name_asc">Name (A–Z)</option>
+        <option value="name_desc">Name (Z–A)</option>
+        <option value="dienste_asc"># Dienste (auf)</option>
+        <option value="dienste_desc"># Dienste (ab)</option>
+        <option value="we_asc"># WE (auf)</option>
+        <option value="we_desc"># WE (ab)</option>
+      </select>
+
+      <span class="badge" id="groupInfo" style="margin-left:8px">–</span>
+    </div>
+
+    <div id="matrixHost" class="matrix-scroller">
+      <div id="matrix"></div>
+    </div>
+
+    <div id="legend"></div>
+    
+    <div id="loader" class="loader hidden">Lade Daten...</div>
+  </div>
+</body>
+</html>
