@@ -352,7 +352,7 @@ function buildTeamFilterOptions(basePersons){
   sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
   sel.onchange = () => {
     ctx.teamFilter = sel.value;
-    localStorage.setItem('dienstplanung_teamFilter', ctx.teamFilter);
+    // ENTFERNT: localStorage.setItem('dienstplanung_teamFilter', ctx.teamFilter);
     scheduleRender();
   };
 }
@@ -376,8 +376,8 @@ function buildGroupSelect(){
   sel.addEventListener('change', ()=> {
     ctx.touchedSelect = true;
     ctx.groupId = (sel.value === 'all') ? null : Number(sel.value);
-    localStorage.setItem('dienstplanung_groupId', sel.value);
-    hardRefresh(); // Full refresh on group change
+    // ENTFERNT: localStorage.setItem('dienstplanung_groupId', sel.value);
+    hardRefresh();
   });
 }
 
@@ -386,7 +386,7 @@ function buildSortSelect(){
   sel.value = ctx.sort;
   sel.addEventListener('change', ()=> {
     ctx.sort = sel.value;
-    localStorage.setItem('dienstplanung_sort', ctx.sort);
+    // ENTFERNT: localStorage.setItem('dienstplanung_sort', ctx.sort);
     scheduleRender();
   });
 }
@@ -577,13 +577,7 @@ async function refresh(selectedRecord){
 
     if (isInitialLoad) {
       ctx.groupList = [...ctx.data.Dienstgruppen].sort((a,b)=> cmp(a[CONFIG.cols.group.labelLong] || a[CONFIG.cols.group.labelShort], b[CONFIG.cols.group.labelLong] || b[CONFIG.cols.group.labelShort]));
-      const savedG = localStorage.getItem('dienstplanung_groupId');
-      const savedS = localStorage.getItem('dienstplanung_sort');
-      const savedT = localStorage.getItem('dienstplanung_teamFilter');
-      if (savedG === 'all') ctx.groupId = null; 
-      else if (savedG != null) ctx.groupId = Number(savedG);
-      if (savedS) ctx.sort = savedS;
-      if (savedT) ctx.teamFilter = savedT;
+      // ENTFERNT: Laden aus localStorage
       buildGroupSelect();
       buildSortSelect();
     }
@@ -593,7 +587,9 @@ async function refresh(selectedRecord){
     }
     
     const sel = $('#groupSelect');
-    if (sel) sel.value = (ctx.groupId == null) ? 'all' : String(ctx.groupId);
+    if (sel) {
+      sel.value = (ctx.groupId == null) ? 'all' : String(ctx.groupId);
+    }
 
     ctx.idx = buildIndexes(ctx.data, ctx.groupId);
     const basePersons = (ctx.groupId == null)
@@ -624,6 +620,8 @@ grist.onRecords(() => {
     initialLoadHandled = true;
     refresh();
   } else {
+    // Rufe refresh() ohne Argument auf, damit die bestehende Auswahl (z.B. nach manueller Änderung)
+    // bei einer Datenaktualisierung erhalten bleibt.
     refresh();
   }
 });
