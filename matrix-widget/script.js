@@ -16,7 +16,6 @@ const CONFIG = {
   }
 };
 
-// NEU: Übersetzungs-Wörterbuch für Tooltip-Gründe
 const REASON_TRANSLATIONS = {
   "D": "Anderer Dienst",
   "+D": "Dienst Folgetag",
@@ -199,6 +198,39 @@ function findAssignedDp(dateId, w, person){
   }
   return null;
 }
+
+// NEU: Eigene Funktion zur Erstellung der Tooltips
+function generateTooltipText(person, date, w) {
+  const tooltipParts = [];
+  const slotsForDay = ctx.idx.verfByDate.get(date.id) || [];
+  const qualifiedSlots = filteredSlotsForPerson(slotsForDay, person);
+
+  for (const slot of qualifiedSlots) {
+    // Prüfe, ob die Person für diesen spezifischen Dienst verfügbar ist
+    const isAvailable = slot.availSet.has(w.id);
+
+    // Wenn NICHT verfügbar, sammle die Gründe
+    if (!isAvailable) {
+      const reasonKey = `${slot.dp.id}|${w.id}`;
+      const reasons = ctx.idx.tooltipReasons.get(reasonKey);
+      
+      if (reasons && reasons.length > 0) {
+        // Füge eine Überschrift für den Dienst hinzu
+        if (tooltipParts.length > 0) tooltipParts.push(''); // Leerzeile für Abstand
+        tooltipParts.push(`${slot.dp[CONFIG.cols.dp.label]}:`);
+        
+        // Füge die übersetzten Gründe hinzu
+        reasons.forEach(r => {
+          const translatedReason = REASON_TRANSLATIONS[r] || r;
+          tooltipParts.push(`- ${translatedReason}`);
+        });
+      }
+    }
+  }
+  
+  return tooltipParts.join('\n');
+}
+
 
 function sortPersons(arr){
   const mode = ctx.sort;
@@ -525,23 +557,14 @@ function renderMatrix(){
           const {num:numAvail, total:totalSlots} = countAvailability(vlistAll, w, person);
           const hasWunsch = hasWunschFor(vlistAll, w, person);
           const isUnerw = !!w[CONFIG.cols.wish.unerw];
+
+          if (totalSlots > 0 && numAvail < totalSlots) { // Gilt für rote und rot-schraffierte
+            const tooltipText = generateTooltipText(person, d, w);
+            if (tooltipText) cell.title = tooltipText;
+          }
+
           if (totalSlots === 0 || numAvail === 0) {
             cell.classList.add('c-red');
-            const allReasons = new Set();
-            const slotsForDay = ctx.idx.verfByDate.get(d.id) || [];
-            for (const slot of filteredSlotsForPerson(slotsForDay, person)) {
-              const reasonKey = `${slot.dp.id}|${w.id}`;
-              const reasons = ctx.idx.tooltipReasons.get(reasonKey);
-              if (reasons) {
-                reasons.forEach(r => {
-                  const translatedReason = REASON_TRANSLATIONS[r] || r;
-                  allReasons.add(translatedReason);
-                });
-              }
-            }
-            if (allReasons.size > 0) {
-              cell.title = Array.from(allReasons).join('\n');
-            }
           } else if (numAvail === totalSlots) {
             if (hasWunsch) cell.classList.add('c-green');
             else if (isUnerw) cell.classList.add('c-yellow');
