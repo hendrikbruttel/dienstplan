@@ -199,27 +199,21 @@ function findAssignedDp(dateId, w, person){
   return null;
 }
 
-// NEU: Eigene Funktion zur Erstellung der Tooltips
 function generateTooltipText(person, date, w) {
   const tooltipParts = [];
   const slotsForDay = ctx.idx.verfByDate.get(date.id) || [];
   const qualifiedSlots = filteredSlotsForPerson(slotsForDay, person);
 
   for (const slot of qualifiedSlots) {
-    // Prüfe, ob die Person für diesen spezifischen Dienst verfügbar ist
     const isAvailable = slot.availSet.has(w.id);
-
-    // Wenn NICHT verfügbar, sammle die Gründe
     if (!isAvailable) {
       const reasonKey = `${slot.dp.id}|${w.id}`;
       const reasons = ctx.idx.tooltipReasons.get(reasonKey);
       
       if (reasons && reasons.length > 0) {
-        // Füge eine Überschrift für den Dienst hinzu
-        if (tooltipParts.length > 0) tooltipParts.push(''); // Leerzeile für Abstand
+        if (tooltipParts.length > 0) tooltipParts.push('');
         tooltipParts.push(`${slot.dp[CONFIG.cols.dp.label]}:`);
         
-        // Füge die übersetzten Gründe hinzu
         reasons.forEach(r => {
           const translatedReason = REASON_TRANSLATIONS[r] || r;
           tooltipParts.push(`- ${translatedReason}`);
@@ -558,7 +552,7 @@ function renderMatrix(){
           const hasWunsch = hasWunschFor(vlistAll, w, person);
           const isUnerw = !!w[CONFIG.cols.wish.unerw];
 
-          if (totalSlots > 0 && numAvail < totalSlots) { // Gilt für rote und rot-schraffierte
+          if (totalSlots > 0 && numAvail < totalSlots) {
             const tooltipText = generateTooltipText(person, d, w);
             if (tooltipText) cell.title = tooltipText;
           }
@@ -667,8 +661,16 @@ async function refresh(selectedRecord, options = {}){
 let initialLoadHandled = false;
 
 grist.onRecord((record) => {
+  const newGroupId = record ? record.id : null;
+  const selectionChanged = newGroupId !== ctx.groupId;
+  
   initialLoadHandled = true;
-  refresh(record);
+
+  if (selectionChanged) {
+    refresh(record);
+  } else {
+    refresh(record, { soft: true });
+  }
 });
 
 grist.onRecords(() => {
