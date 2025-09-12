@@ -9,7 +9,6 @@ const CONFIG = {
   },
   cols: {
     plan: { date: 'Datum', kurzel: 'Kurzel', tag: 'Kurzel_Tag', check: 'Prufe_Teambesetzung' },
-    // NEU: Spalte für Int. Wertung hinzugefügt
     person: { short: 'Kurzel', teamShort: 'Kurzel_Team', groups: 'Dienstgruppen', nD: 'N_Dienste', maxD: 'Maximale_Dienste', nWE: 'N_WE', maxWE: 'Maximale_WE', intVal: 'Int_Wertung' },
     dp: { date: 'Datum', dienst: 'Dienst', person: 'Person', verf: 'Verfugbar', wunsch: 'Wunsch', label: 'Kurzel', checkCol: 'Check_Dienstgruppe' },
     wish: { date: 'Datum', person: 'Person', df: 'DF', nv: 'NV', present: 'Anwesend', unerw: 'Unerwunscht', display: 'Display' },
@@ -226,7 +225,7 @@ function generateTooltipText(person, date, w) {
   return tooltipParts.join('\n');
 }
 
-// GEÄNDERT: Sortierlogik um Int. Wertung erweitert
+
 function sortPersons(arr){
   const mode = ctx.sort;
   const personShort = CONFIG.cols.person.short;
@@ -503,14 +502,20 @@ function renderMatrix(){
   const table = el('table','matrix');
   const thead = el('thead');
   let tr = el('tr');
-  const personHeader = (ctx.groupId == null) ? 'Person (Team / DG)' : 'Person (Team)';
-  const hPerson = el('th','th col-person', personHeader); hPerson.rowSpan = 2; tr.appendChild(hPerson);
+  const personHeader = el('th','th col-person', (ctx.groupId == null) ? 'Person (Team / DG)' : 'Person (Team)');
+  personHeader.rowSpan = 2;
+  tr.appendChild(personHeader);
   dates.forEach(d => tr.appendChild(el('th','th col-date', d[CONFIG.cols.plan.kurzel] ?? '')));
   
-  // NEU: Header für Int. # hinzugefügt und Klassen angepasst
-  const thInt = el('th','th col-sum col-sum-left','Int. #'); thInt.rowSpan = 2; tr.appendChild(thInt);
-  const thDienste = el('th','th col-sum col-sum-middle','# Dienste'); thDienste.rowSpan = 2; tr.appendChild(thDienste);
-  const thWE = el('th','th col-sum col-sum-right','# WE'); thWE.rowSpan = 2; tr.appendChild(thWE);
+  // GEÄNDERT: Header-Summen-Container
+  const thSumContainer = el('th', 'th sum-container');
+  thSumContainer.rowSpan = 2;
+  const thSumFlex = el('div', 'sum-container-flex');
+  thSumFlex.appendChild(el('div', 'sum-cell', 'Int. #'));
+  thSumFlex.appendChild(el('div', 'sum-cell', '# Dienste'));
+  thSumFlex.appendChild(el('div', 'sum-cell', '# WE'));
+  thSumContainer.appendChild(thSumFlex);
+  tr.appendChild(thSumContainer);
   
   thead.appendChild(tr);
 
@@ -589,19 +594,25 @@ function renderMatrix(){
       row.appendChild(cell);
     });
     
-    // NEU: Zelle für Int. # hinzugefügt und Klassen angepasst
-    const tdInt = el('td','td bold col-sum col-sum-left', person[CONFIG.cols.person.intVal] ?? 0);
-    row.appendChild(tdInt);
+    // GEÄNDERT: Body-Summen-Container
+    const tdSumContainer = el('td', 'td sum-container');
+    const tdSumFlex = el('div', 'sum-container-flex');
+
+    const tdInt = el('div', 'sum-cell bold', person[CONFIG.cols.person.intVal] ?? 0);
+    tdSumFlex.appendChild(tdInt);
     
     const nD = person[CONFIG.cols.person.nD] ?? 0, maxD = person[CONFIG.cols.person.maxD] ?? 0;
-    const tdD = el('td','td bold col-sum col-sum-middle', `${nD} / ${maxD}`);
-    if (nD > maxD) { tdD.classList.add('c-red'); markColored(tdD); }
-    row.appendChild(tdD);
+    const tdD = el('div','sum-cell bold', `${nD} / ${maxD}`);
+    if (nD > maxD) { tdD.classList.add('c-red'); markColored(tdSumContainer); }
+    tdSumFlex.appendChild(tdD);
 
     const nWE = person[CONFIG.cols.person.nWE] ?? 0, maxWE = person[CONFIG.cols.person.maxWE] ?? 0;
-    const tdWE = el('td','td bold col-sum col-sum-right', `${nWE} / ${maxWE}`);
-    if (nWE > maxWE) { tdWE.classList.add('c-red'); markColored(tdWE); }
-    row.appendChild(tdWE);
+    const tdWE = el('div','sum-cell bold', `${nWE} / ${maxWE}`);
+    if (nWE > maxWE) { tdWE.classList.add('c-red'); markColored(tdSumContainer); }
+    tdSumFlex.appendChild(tdWE);
+    
+    tdSumContainer.appendChild(tdSumFlex);
+    row.appendChild(tdSumContainer);
     
     tbody.appendChild(row);
     prevTeamKey = teamKey;
@@ -674,7 +685,6 @@ let initialLoadHandled = false;
 
 grist.onRecord((record) => {
   const newGroupId = record ? record.id : null;
-  // Nur einen harten Refresh auslösen, wenn der Benutzer tatsächlich eine ANDERE Zeile auswählt
   const selectionChanged = newGroupId !== ctx.groupId;
   
   initialLoadHandled = true;
@@ -683,7 +693,6 @@ grist.onRecord((record) => {
     ctx.touchedSelect = false;
     refresh(record, { showLoader: true });
   } else {
-    // Ansonsten ist es nur ein Daten-Update im Hintergrund
     refresh(record, { showLoader: false });
   }
 });
@@ -691,9 +700,8 @@ grist.onRecord((record) => {
 grist.onRecords(() => {
   if (!initialLoadHandled) {
     initialLoadHandled = true;
-    refresh(null, { showLoader: true }); // Erster Ladevorgang
+    refresh(null, { showLoader: true });
   } else {
-    // Hintergrund-Update ohne spezifischen Datensatz
     refresh(null, { showLoader: false });
   }
 });
