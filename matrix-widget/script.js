@@ -16,6 +16,18 @@ const CONFIG = {
   }
 };
 
+// NEU: Übersetzungs-Wörterbuch für Tooltip-Gründe
+const REASON_TRANSLATIONS = {
+  "D": "Anderer Dienst",
+  "+D": "Dienst Folgetag",
+  "T": "Teambesetzung",
+  "+T": "Teambesetzung Folgetag",
+  "D#": "Max. Dienste",
+  "WE#": "Max. WE",
+  "+A": "Abwesenheit Folgetag",
+  "+NV": "NV Folgetag"
+};
+
 const $ = (sel, root=document) => root.querySelector(sel);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text!=null) n.textContent = text; return n; };
 const byId = (arr) => Object.fromEntries(arr.map(r => [r.id, r]));
@@ -521,7 +533,10 @@ function renderMatrix(){
               const reasonKey = `${slot.dp.id}|${w.id}`;
               const reasons = ctx.idx.tooltipReasons.get(reasonKey);
               if (reasons) {
-                reasons.forEach(r => allReasons.add(r));
+                reasons.forEach(r => {
+                  const translatedReason = REASON_TRANSLATIONS[r] || r;
+                  allReasons.add(translatedReason);
+                });
               }
             }
             if (allReasons.size > 0) {
