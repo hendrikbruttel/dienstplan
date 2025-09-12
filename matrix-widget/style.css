@@ -74,14 +74,28 @@ thead .col-person { z-index: 21; }
   min-width: var(--sum-col-width);
   position: sticky;
   background-color: #fff; background-clip: padding-box;
-  border-left: 1px solid var(--border);
 }
 
-/* GEÄNDERT: Explizite z-index Hierarchie für korrekte Stapelung */
-.col-sum-right { right: 0; z-index: 11; }
-.col-sum-middle { right: var(--sum-col-width); z-index: 12; }
-.col-sum-left { right: calc(2 * var(--sum-col-width)); z-index: 13; }
+/* GEÄNDERT: Trennlinien werden jetzt mit box-shadow gezeichnet, um Render-Fehler zu vermeiden */
+.col-sum-right {
+  right: 0;
+  z-index: 11;
+  border-left: 1px solid var(--border); /* Äußerer Rand bleibt ein echter border */
+}
+.col-sum-middle {
+  right: var(--sum-col-width);
+  z-index: 12;
+  border-left: none; /* Echter Rand wird entfernt */
+  box-shadow: -1px 0 0 0 var(--border); /* Rand wird durch Schatten auf der linken Seite simuliert */
+}
+.col-sum-left {
+  right: calc(2 * var(--sum-col-width));
+  z-index: 13;
+  border-left: none; /* Echter Rand wird entfernt */
+  box-shadow: -1px 0 0 0 var(--border); /* Rand wird durch Schatten auf der linken Seite simuliert */
+}
 
+/* Der z-index für den Header muss die Hierarchie beibehalten */
 thead .col-sum-right { z-index: 21; }
 thead .col-sum-middle { z-index: 22; }
 thead .col-sum-left { z-index: 23; }
