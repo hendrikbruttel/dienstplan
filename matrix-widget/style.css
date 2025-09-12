@@ -35,7 +35,6 @@ select { padding:6px 8px; border:1px solid var(--border); border-radius:8px; bac
 .matrix-scroller { position:relative; flex:1 1 auto; overflow:auto; border:1px solid var(--border); border-radius:10px; background:white; }
 table.matrix {
   border-collapse: collapse;
-  /* GEÄNDERT: Breite für 3 Summenspalten angepasst */
   width: max(100%, calc(var(--person-col-width) + (var(--date-cols) * var(--date-col-width)) + (3 * var(--sum-col-width))));
   table-layout: auto;
 }
@@ -73,16 +72,20 @@ thead .col-person { z-index: 21; }
 
 .col-sum {
   min-width: var(--sum-col-width);
-  position: sticky; z-index: 11;
+  position: sticky;
   background-color: #fff; background-clip: padding-box;
   border-left: 1px solid var(--border);
 }
-/* GEÄNDERT: Positionierung für 3 Summenspalten */
-.col-sum-right { right: 0; }
-.col-sum-middle { right: var(--sum-col-width); }
-.col-sum-left { right: calc(2 * var(--sum-col-width)); }
 
-thead .col-sum { z-index: 21; }
+/* GEÄNDERT: Explizite z-index Hierarchie für korrekte Stapelung */
+.col-sum-right { right: 0; z-index: 11; }
+.col-sum-middle { right: var(--sum-col-width); z-index: 12; }
+.col-sum-left { right: calc(2 * var(--sum-col-width)); z-index: 13; }
+
+thead .col-sum-right { z-index: 21; }
+thead .col-sum-middle { z-index: 22; }
+thead .col-sum-left { z-index: 23; }
+
 
 tbody .tr.even .col-person:not([data-colored="1"]),
 tbody .tr.even .col-sum:not([data-colored="1"]) { background-color: var(--row-even); }
