@@ -331,7 +331,7 @@ function openPopoverForCell(cell, {person, w, date, choices=[], assignedDp=null}
 
 // ---------- Assignment (optimistisch) ----------
 async function assignPerson(dpId, personId){
-  setLoader(true);
+  setLoader(true); // Zuweisung ist eine manuelle Aktion -> Loader anzeigen
   try {
     const dp = ctx.data.Dienstplan.find(r => r.id === dpId);
     if (dp) dp[CONFIG.cols.dp.person] = personId ?? null;
@@ -344,7 +344,7 @@ async function assignPerson(dpId, personId){
     await hardRefresh();
   } finally {
     closePopover();
-    setLoader(false);
+    // Loader wird am Ende von renderMatrix() ausgeblendet
   }
 }
 
@@ -415,7 +415,7 @@ function buildGroupSelect(){
   sel.addEventListener('change', ()=> {
     ctx.touchedSelect = true;
     ctx.groupId = (sel.value === 'all') ? null : Number(sel.value);
-    hardRefresh();
+    hardRefresh(); // Wechsel im Widget ist eine manuelle Aktion -> Loader anzeigen
   });
 }
 
@@ -473,6 +473,7 @@ function renderMatrix(){
 
   if (!ctx.data || !ctx.data.Planungsperiode.length) {
     host.appendChild(el('div', 'empty-state', 'Keine Planungsdaten gefunden. Bitte fügen Sie Tage in der Tabelle "Planungsperiode" hinzu.'));
+    setLoader(false); // Render-Pfad endet hier -> Loader ausblenden
     return;
   }
   
@@ -485,6 +486,7 @@ function renderMatrix(){
 
   if (!personenByGroup.length) {
     host.appendChild(el('div', 'empty-state', 'Für die ausgewählte Dienstgruppe wurden keine Personen gefunden.'));
+    setLoader(false); // Render-Pfad endet hier -> Loader ausblenden
     return;
   }
   
@@ -608,16 +610,18 @@ function renderMatrix(){
     ctx.headerRO = new ResizeObserver(updateHeaderStickyOffsets);
     ctx.headerRO.observe(theadEl);
   }
+  
+  setLoader(false); // Die letzte Aktion: Nachdem alles gezeichnet ist, den Loader ausblenden.
 }
 
 // ---------- Main Refresh & Initialization ----------
 async function hardRefresh() {
-  await refresh();
+  await refresh(null, { showLoader: true });
 }
 
 async function refresh(selectedRecord, options = {}){
-  const { soft = false } = options;
-  if (!soft) {
+  const { showLoader = false } = options;
+  if (showLoader) {
     setLoader(true);
   }
   
@@ -651,10 +655,7 @@ async function refresh(selectedRecord, options = {}){
     console.error("Refresh failed:", e);
     $('#matrix').innerHTML = '';
     $('#matrix').appendChild(el('div', 'empty-state', 'Ein Fehler ist aufgetreten. Prüfen Sie die Tabellen- und Spaltennamen.'));
-  } finally {
-    if (!soft) {
-      setLoader(false);
-    }
+    if (showLoader) setLoader(false);
   }
 }
 
@@ -666,18 +667,23 @@ grist.onRecord((record) => {
   
   initialLoadHandled = true;
 
+  // Nur einen harten Refresh mit Loader auslösen, wenn der Benutzer
+  // tatsächlich eine ANDERE Zeile in Grist auswählt.
   if (selectionChanged) {
-    refresh(record);
+    ctx.touchedSelect = false; // Zurücksetzen, da die Auswahl von Grist kam
+    refresh(record, { showLoader: true });
   } else {
-    refresh(record, { soft: true });
+    // Ansonsten ist es nur ein Daten-Update im Hintergrund
+    refresh(record, { showLoader: false });
   }
 });
 
 grist.onRecords(() => {
   if (!initialLoadHandled) {
     initialLoadHandled = true;
-    refresh();
+    refresh(null, { showLoader: true }); // Erster Ladevorgang
   } else {
-    refresh(null, { soft: true });
+    // Hintergrund-Update ohne spezifischen Datensatz
+    refresh(null, { showLoader: false });
   }
 });
