@@ -507,7 +507,6 @@ function renderMatrix(){
   tr.appendChild(personHeader);
   dates.forEach(d => tr.appendChild(el('th','th col-date', d[CONFIG.cols.plan.kurzel] ?? '')));
   
-  // GEÄNDERT: Header-Summen-Container
   const thSumContainer = el('th', 'th sum-container');
   thSumContainer.rowSpan = 2;
   const thSumFlex = el('div', 'sum-container-flex');
@@ -594,7 +593,6 @@ function renderMatrix(){
       row.appendChild(cell);
     });
     
-    // GEÄNDERT: Body-Summen-Container
     const tdSumContainer = el('td', 'td sum-container');
     const tdSumFlex = el('div', 'sum-container-flex');
 
