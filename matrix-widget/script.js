@@ -10,7 +10,7 @@ const CONFIG = {
   cols: {
     plan: { date: 'Datum', kurzel: 'Kurzel', tag: 'Kurzel_Tag', check: 'Prufe_Teambesetzung' },
     person: { short: 'Kurzel', teamShort: 'Kurzel_Team', groups: 'Dienstgruppen', nD: 'N_Dienste', maxD: 'Maximale_Dienste', nWE: 'N_WE', maxWE: 'Maximale_WE' },
-    dp: { date: 'Datum', dienst: 'Dienst', person: 'Person', verf: 'Verfugbar', wunsch: 'Wunsch', label: 'Kurzel' },
+    dp: { date: 'Datum', dienst: 'Dienst', person: 'Person', verf: 'Verfugbar', wunsch: 'Wunsch', label: 'Kurzel', checkCol: 'Check_Dienstgruppe' },
     wish: { date: 'Datum', person: 'Person', df: 'DF', nv: 'NV', present: 'Anwesend', unerw: 'Unerwunscht', display: 'Display' },
     group: { labelShort: 'Kurzel', labelLong: 'Bezeichnung' }
   }
@@ -71,7 +71,7 @@ async function fetchAll() {
 function normalizeId(val){
   if (val == null) return null;
   if (typeof val === 'number') return val;
-  if (Array.isArray(val) && val[0] === 'R' && typeof val[1] === 'number') return val[1]; // Handle Grist Reference Type
+  if (Array.isArray(val) && val[0] === 'R' && typeof val[1] === 'number') return val[1];
   if (typeof val === 'object' && typeof val.id === 'number') return val.id;
   return null;
 }
@@ -82,12 +82,12 @@ function personGroupIds(p){
   if (s) return s;
   s = new Set();
   const arr = Array.isArray(p[CONFIG.cols.person.groups]) ? p[CONFIG.cols.person.groups] : [];
-  if (arr[0] === 'L') { // Handle Grist Reference List
+  if (arr[0] === 'L') {
       for(let i = 1; i < arr.length; i++) {
         const id = normalizeId(arr[i]);
         if (id != null) s.add(id);
       }
-  } else { // Handle simple array of IDs
+  } else {
     for (const v of arr) { const id = normalizeId(v); if (id != null) s.add(id); }
   }
   groupCache.set(p.id, s);
@@ -115,6 +115,8 @@ function buildIndexes(data, groupId){
   }
 
   const verfByDate = new Map();
+  const tooltipReasons = new Map();
+
   for (const dp of data.Dienstplan) {
     if (!matchGroup(dp[CONFIG.cols.dp.dienst], groupId)) continue;
     const did = normalizeId(dp[CONFIG.cols.dp.date]);
@@ -132,9 +134,24 @@ function buildIndexes(data, groupId){
 
     let arr = verfByDate.get(did); if (!arr){ arr = []; verfByDate.set(did, arr); }
     arr.push({ dp, availSet, wunschSet, dienstId });
+
+    const checkJson = dp[CONFIG.cols.dp.checkCol];
+    if (typeof checkJson === 'string' && checkJson.startsWith('[')) {
+      try {
+        const checkData = JSON.parse(checkJson);
+        if (Array.isArray(checkData)) {
+          for (const item of checkData) {
+            if (item.id && Array.isArray(item.Reasons) && item.Reasons.length > 0) {
+              const key = `${dp.id}|${item.id}`;
+              tooltipReasons.set(key, item.Reasons);
+            }
+          }
+        }
+      } catch (e) { /* JSON-Parsing-Fehler ignorieren */ }
+    }
   }
 
-  return { wByPersonDate, verfByDate };
+  return { wByPersonDate, verfByDate, tooltipReasons };
 }
 
 function filteredSlotsForPerson(vlist, person){
@@ -293,21 +310,6 @@ async function assignPerson(dpId, personId){
   }
 }
 
-async function hardRefresh(){
-  setLoader(true);
-  try {
-    ctx.data = await fetchAll();
-    groupCache.clear();
-    ctx.idx = buildIndexes(ctx.data, ctx.groupId);
-    scheduleRender();
-  } catch (e) {
-    console.error("Hard refresh failed:", e);
-    toast('Neu-Synchronisierung ist fehlgeschlagen.');
-  } finally {
-    setLoader(false);
-  }
-}
-
 // ---------- UI Builders & Updaters ----------
 function applyHeaderFlagStyles(dates){
   let tag = document.getElementById('hdrFlagsStyle');
@@ -352,7 +354,6 @@ function buildTeamFilterOptions(basePersons){
   sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
   sel.onchange = () => {
     ctx.teamFilter = sel.value;
-    // ENTFERNT: localStorage.setItem('dienstplanung_teamFilter', ctx.teamFilter);
     scheduleRender();
   };
 }
@@ -376,7 +377,6 @@ function buildGroupSelect(){
   sel.addEventListener('change', ()=> {
     ctx.touchedSelect = true;
     ctx.groupId = (sel.value === 'all') ? null : Number(sel.value);
-    // ENTFERNT: localStorage.setItem('dienstplanung_groupId', sel.value);
     hardRefresh();
   });
 }
@@ -386,7 +386,6 @@ function buildSortSelect(){
   sel.value = ctx.sort;
   sel.addEventListener('change', ()=> {
     ctx.sort = sel.value;
-    // ENTFERNT: localStorage.setItem('dienstplanung_sort', ctx.sort);
     scheduleRender();
   });
 }
@@ -516,6 +515,18 @@ function renderMatrix(){
           const isUnerw = !!w[CONFIG.cols.wish.unerw];
           if (totalSlots === 0 || numAvail === 0) {
             cell.classList.add('c-red');
+            const allReasons = new Set();
+            const slotsForDay = ctx.idx.verfByDate.get(d.id) || [];
+            for (const slot of filteredSlotsForPerson(slotsForDay, person)) {
+              const reasonKey = `${slot.dp.id}|${w.id}`;
+              const reasons = ctx.idx.tooltipReasons.get(reasonKey);
+              if (reasons) {
+                reasons.forEach(r => allReasons.add(r));
+              }
+            }
+            if (allReasons.size > 0) {
+              cell.title = Array.from(allReasons).join('\n');
+            }
           } else if (numAvail === totalSlots) {
             if (hasWunsch) cell.classList.add('c-green');
             else if (isUnerw) cell.classList.add('c-yellow');
@@ -568,8 +579,16 @@ function renderMatrix(){
 }
 
 // ---------- Main Refresh & Initialization ----------
-async function refresh(selectedRecord){
-  setLoader(true);
+async function hardRefresh() {
+  await refresh();
+}
+
+async function refresh(selectedRecord, options = {}){
+  const { soft = false } = options;
+  if (!soft) {
+    setLoader(true);
+  }
+  
   try {
     const isInitialLoad = !ctx.data;
     ctx.data = await fetchAll();
@@ -577,7 +596,6 @@ async function refresh(selectedRecord){
 
     if (isInitialLoad) {
       ctx.groupList = [...ctx.data.Dienstgruppen].sort((a,b)=> cmp(a[CONFIG.cols.group.labelLong] || a[CONFIG.cols.group.labelShort], b[CONFIG.cols.group.labelLong] || b[CONFIG.cols.group.labelShort]));
-      // ENTFERNT: Laden aus localStorage
       buildGroupSelect();
       buildSortSelect();
     }
@@ -602,16 +620,16 @@ async function refresh(selectedRecord){
     $('#matrix').innerHTML = '';
     $('#matrix').appendChild(el('div', 'empty-state', 'Ein Fehler ist aufgetreten. Prüfen Sie die Tabellen- und Spaltennamen.'));
   } finally {
-    setLoader(false);
+    if (!soft) {
+      setLoader(false);
+    }
   }
 }
 
 let initialLoadHandled = false;
 
 grist.onRecord((record) => {
-  if (!initialLoadHandled) {
-    initialLoadHandled = true;
-  }
+  initialLoadHandled = true;
   refresh(record);
 });
 
@@ -620,8 +638,6 @@ grist.onRecords(() => {
     initialLoadHandled = true;
     refresh();
   } else {
-    // Rufe refresh() ohne Argument auf, damit die bestehende Auswahl (z.B. nach manueller Änderung)
-    // bei einer Datenaktualisierung erhalten bleibt.
-    refresh();
+    refresh(null, { soft: true });
   }
 });
