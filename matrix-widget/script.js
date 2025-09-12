@@ -9,7 +9,8 @@ const CONFIG = {
   },
   cols: {
     plan: { date: 'Datum', kurzel: 'Kurzel', tag: 'Kurzel_Tag', check: 'Prufe_Teambesetzung' },
-    person: { short: 'Kurzel', teamShort: 'Kurzel_Team', groups: 'Dienstgruppen', nD: 'N_Dienste', maxD: 'Maximale_Dienste', nWE: 'N_WE', maxWE: 'Maximale_WE' },
+    // NEU: Spalte für Int. Wertung hinzugefügt
+    person: { short: 'Kurzel', teamShort: 'Kurzel_Team', groups: 'Dienstgruppen', nD: 'N_Dienste', maxD: 'Maximale_Dienste', nWE: 'N_WE', maxWE: 'Maximale_WE', intVal: 'Int_Wertung' },
     dp: { date: 'Datum', dienst: 'Dienst', person: 'Person', verf: 'Verfugbar', wunsch: 'Wunsch', label: 'Kurzel', checkCol: 'Check_Dienstgruppe' },
     wish: { date: 'Datum', person: 'Person', df: 'DF', nv: 'NV', present: 'Anwesend', unerw: 'Unerwunscht', display: 'Display' },
     group: { labelShort: 'Kurzel', labelLong: 'Bezeichnung' }
@@ -225,17 +226,20 @@ function generateTooltipText(person, date, w) {
   return tooltipParts.join('\n');
 }
 
-
+// GEÄNDERT: Sortierlogik um Int. Wertung erweitert
 function sortPersons(arr){
   const mode = ctx.sort;
   const personShort = CONFIG.cols.person.short;
   const nD = CONFIG.cols.person.nD;
   const nWE = CONFIG.cols.person.nWE;
+  const intVal = CONFIG.cols.person.intVal;
   
   if (mode === 'name_asc')  return [...arr].sort((a,b)=> cmp(a[personShort], b[personShort]));
   if (mode === 'name_desc') return [...arr].sort((a,b)=> cmp(b[personShort], a[personShort]));
   
   const numSort = (a,b,col) => (Number(a[col]||0) - Number(b[col]||0)) || cmp(a[personShort], b[personShort]);
+  if (mode === 'int_asc')  return [...arr].sort((a,b)=> numSort(a,b,intVal));
+  if (mode === 'int_desc') return [...arr].sort((a,b)=> numSort(b,a,intVal));
   if (mode === 'dienste_asc')  return [...arr].sort((a,b)=> numSort(a,b,nD));
   if (mode === 'dienste_desc') return [...arr].sort((a,b)=> numSort(b,a,nD));
   if (mode === 'we_asc')  return [...arr].sort((a,b)=> numSort(a,b,nWE));
@@ -331,7 +335,7 @@ function openPopoverForCell(cell, {person, w, date, choices=[], assignedDp=null}
 
 // ---------- Assignment (optimistisch) ----------
 async function assignPerson(dpId, personId){
-  setLoader(true); // Zuweisung ist eine manuelle Aktion -> Loader anzeigen
+  setLoader(true);
   try {
     const dp = ctx.data.Dienstplan.find(r => r.id === dpId);
     if (dp) dp[CONFIG.cols.dp.person] = personId ?? null;
@@ -344,7 +348,6 @@ async function assignPerson(dpId, personId){
     await hardRefresh();
   } finally {
     closePopover();
-    // Loader wird am Ende von renderMatrix() ausgeblendet
   }
 }
 
@@ -415,7 +418,7 @@ function buildGroupSelect(){
   sel.addEventListener('change', ()=> {
     ctx.touchedSelect = true;
     ctx.groupId = (sel.value === 'all') ? null : Number(sel.value);
-    hardRefresh(); // Wechsel im Widget ist eine manuelle Aktion -> Loader anzeigen
+    hardRefresh();
   });
 }
 
@@ -473,7 +476,7 @@ function renderMatrix(){
 
   if (!ctx.data || !ctx.data.Planungsperiode.length) {
     host.appendChild(el('div', 'empty-state', 'Keine Planungsdaten gefunden. Bitte fügen Sie Tage in der Tabelle "Planungsperiode" hinzu.'));
-    setLoader(false); // Render-Pfad endet hier -> Loader ausblenden
+    setLoader(false);
     return;
   }
   
@@ -486,7 +489,7 @@ function renderMatrix(){
 
   if (!personenByGroup.length) {
     host.appendChild(el('div', 'empty-state', 'Für die ausgewählte Dienstgruppe wurden keine Personen gefunden.'));
-    setLoader(false); // Render-Pfad endet hier -> Loader ausblenden
+    setLoader(false);
     return;
   }
   
@@ -503,8 +506,12 @@ function renderMatrix(){
   const personHeader = (ctx.groupId == null) ? 'Person (Team / DG)' : 'Person (Team)';
   const hPerson = el('th','th col-person', personHeader); hPerson.rowSpan = 2; tr.appendChild(hPerson);
   dates.forEach(d => tr.appendChild(el('th','th col-date', d[CONFIG.cols.plan.kurzel] ?? '')));
-  const thDienste = el('th','th col-sum col-sum-1','# Dienste'); thDienste.rowSpan = 2; tr.appendChild(thDienste);
-  const thWE = el('th','th col-sum col-sum-2','# WE'); thWE.rowSpan = 2; tr.appendChild(thWE);
+  
+  // NEU: Header für Int. # hinzugefügt und Klassen angepasst
+  const thInt = el('th','th col-sum col-sum-left','Int. #'); thInt.rowSpan = 2; tr.appendChild(thInt);
+  const thDienste = el('th','th col-sum col-sum-middle','# Dienste'); thDienste.rowSpan = 2; tr.appendChild(thDienste);
+  const thWE = el('th','th col-sum col-sum-right','# WE'); thWE.rowSpan = 2; tr.appendChild(thWE);
+  
   thead.appendChild(tr);
 
   tr = el('tr');
@@ -581,14 +588,18 @@ function renderMatrix(){
       }
       row.appendChild(cell);
     });
-
+    
+    // NEU: Zelle für Int. # hinzugefügt und Klassen angepasst
+    const tdInt = el('td','td bold col-sum col-sum-left', person[CONFIG.cols.person.intVal] ?? 0);
+    row.appendChild(tdInt);
+    
     const nD = person[CONFIG.cols.person.nD] ?? 0, maxD = person[CONFIG.cols.person.maxD] ?? 0;
-    const tdD = el('td','td bold col-sum col-sum-1', `${nD} / ${maxD}`);
+    const tdD = el('td','td bold col-sum col-sum-middle', `${nD} / ${maxD}`);
     if (nD > maxD) { tdD.classList.add('c-red'); markColored(tdD); }
     row.appendChild(tdD);
 
     const nWE = person[CONFIG.cols.person.nWE] ?? 0, maxWE = person[CONFIG.cols.person.maxWE] ?? 0;
-    const tdWE = el('td','td bold col-sum col-sum-2', `${nWE} / ${maxWE}`);
+    const tdWE = el('td','td bold col-sum col-sum-right', `${nWE} / ${maxWE}`);
     if (nWE > maxWE) { tdWE.classList.add('c-red'); markColored(tdWE); }
     row.appendChild(tdWE);
     
@@ -611,7 +622,7 @@ function renderMatrix(){
     ctx.headerRO.observe(theadEl);
   }
   
-  setLoader(false); // Die letzte Aktion: Nachdem alles gezeichnet ist, den Loader ausblenden.
+  setLoader(false);
 }
 
 // ---------- Main Refresh & Initialization ----------
@@ -663,14 +674,13 @@ let initialLoadHandled = false;
 
 grist.onRecord((record) => {
   const newGroupId = record ? record.id : null;
+  // Nur einen harten Refresh auslösen, wenn der Benutzer tatsächlich eine ANDERE Zeile auswählt
   const selectionChanged = newGroupId !== ctx.groupId;
   
   initialLoadHandled = true;
 
-  // Nur einen harten Refresh mit Loader auslösen, wenn der Benutzer
-  // tatsächlich eine ANDERE Zeile in Grist auswählt.
   if (selectionChanged) {
-    ctx.touchedSelect = false; // Zurücksetzen, da die Auswahl von Grist kam
+    ctx.touchedSelect = false;
     refresh(record, { showLoader: true });
   } else {
     // Ansonsten ist es nur ein Daten-Update im Hintergrund
