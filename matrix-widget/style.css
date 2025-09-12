@@ -33,13 +33,31 @@ body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvet
 select { padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:#fff; }
 
 .matrix-scroller { position:relative; flex:1 1 auto; overflow:auto; border:1px solid var(--border); border-radius:10px; background:white; }
+
+/* --- FINALE LÖSUNG FÜR STICKY BORDERS: NEUES BORDER-MODELL --- */
 table.matrix {
-  border-collapse: collapse;
+  /* GEÄNDERT: border-collapse: separate ist die robusteste Methode */
+  border-collapse: separate;
+  border-spacing: 0;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   width: max(100%, calc(var(--person-col-width) + (var(--date-cols) * var(--date-col-width)) + (3 * var(--sum-col-width))));
   table-layout: auto;
 }
 
-.th, .td { border:1px solid var(--border); padding:8px; text-align:center; position: relative; background:#fff; }
+.th, .td {
+  /* GEÄNDERT: Jede Zelle zeichnet nur noch ihren rechten und unteren Rand */
+  padding:8px;
+  text-align:center;
+  position: relative;
+  background:#fff;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-left: none;
+  border-top: none;
+}
+/* --- ENDE NEUES BORDER-MODELL --- */
+
 .th { background-color: var(--hdr); color: var(--text); font-weight:600; }
 .td.bold { font-weight:700; }
 
@@ -50,7 +68,6 @@ thead tr:nth-child(1) th {
 thead tr:nth-child(2) th {
   position: sticky; top: var(--hdr-row1-h); z-index: 19;
   background-color: var(--hdr);
-  border-bottom: 2px solid var(--border);
 }
 thead .col-person,
 thead .col-sum {
@@ -64,7 +81,6 @@ thead .col-sum {
   min-width: var(--person-col-width);
   position: sticky; left: 0; z-index: 11;
   background-color: #fff; background-clip: padding-box;
-  border-right: 1px solid var(--border);
 }
 thead .col-person { z-index: 21; }
 
@@ -74,49 +90,26 @@ thead .col-person { z-index: 21; }
   min-width: var(--sum-col-width);
   position: sticky;
   background-color: #fff; background-clip: padding-box;
-}
-
-/* --- FINALE LÖSUNG FÜR STICKY BORDERS --- */
-.col-sum-right {
-  right: 0;
-  z-index: 11;
+  /* Jede Summenspalte braucht jetzt einen expliziten linken Rand */
   border-left: 1px solid var(--border);
 }
-.col-sum-middle {
-  right: var(--sum-col-width);
-  z-index: 12;
-  border-left: none; /* Echter Rand wird entfernt */
-}
-.col-sum-left {
-  right: calc(2 * var(--sum-col-width));
-  z-index: 13;
-  border-left: none; /* Echter Rand wird entfernt */
-}
 
-/* NEU: Künstliche Trennlinie per Pseudo-Element, die das Rendering-Problem löst */
-.col-sum-middle::before,
-.col-sum-left::before {
-  content: '';
-  position: absolute;
-  left: -1px; /* Positioniert die Linie genau auf der Kante */
-  top: -1px;   /* Sorgt dafür, dass die Linie von ganz oben... */
-  bottom: -1px;/* ...bis ganz unten reicht */
-  width: 1px;
-  background-color: var(--border);
-  z-index: 5; /* Hebt die Linie über den Hintergrund der Nachbarzelle */
-}
+/* z-index Hierarchie ist weiterhin gut für die Stapelung */
+.col-sum-right { right: 0; z-index: 11; }
+.col-sum-middle { right: var(--sum-col-width); z-index: 12; }
+.col-sum-left { right: calc(2 * var(--sum-col-width)); z-index: 13; }
 
-/* z-index für Header muss die Hierarchie beibehalten */
 thead .col-sum-right { z-index: 21; }
 thead .col-sum-middle { z-index: 22; }
 thead .col-sum-left { z-index: 23; }
-/* --- ENDE FINALE LÖSUNG --- */
-
 
 tbody .tr.even .col-person:not([data-colored="1"]),
 tbody .tr.even .col-sum:not([data-colored="1"]) { background-color: var(--row-even); }
 
-.team-sep .td { border-top: 3px solid #111827 !important; }
+.team-sep .td {
+  /* Wichtig, damit die dicke Linie gezeichnet wird */
+  border-top: 3px solid #111827 !important;
+}
 
 .c-blue{ background:var(--blue) !important; color:var(--blue-text); font-weight:700; }
 .c-gray{ background:var(--gray) !important; color:var(--gray-text); font-weight:700; }
