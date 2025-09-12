@@ -76,29 +76,41 @@ thead .col-person { z-index: 21; }
   background-color: #fff; background-clip: padding-box;
 }
 
-/* GEÄNDERT: Trennlinien werden jetzt mit box-shadow gezeichnet, um Render-Fehler zu vermeiden */
+/* --- FINALE LÖSUNG FÜR STICKY BORDERS --- */
 .col-sum-right {
   right: 0;
   z-index: 11;
-  border-left: 1px solid var(--border); /* Äußerer Rand bleibt ein echter border */
+  border-left: 1px solid var(--border);
 }
 .col-sum-middle {
   right: var(--sum-col-width);
   z-index: 12;
   border-left: none; /* Echter Rand wird entfernt */
-  box-shadow: -1px 0 0 0 var(--border); /* Rand wird durch Schatten auf der linken Seite simuliert */
 }
 .col-sum-left {
   right: calc(2 * var(--sum-col-width));
   z-index: 13;
   border-left: none; /* Echter Rand wird entfernt */
-  box-shadow: -1px 0 0 0 var(--border); /* Rand wird durch Schatten auf der linken Seite simuliert */
 }
 
-/* Der z-index für den Header muss die Hierarchie beibehalten */
+/* NEU: Künstliche Trennlinie per Pseudo-Element, die das Rendering-Problem löst */
+.col-sum-middle::before,
+.col-sum-left::before {
+  content: '';
+  position: absolute;
+  left: -1px; /* Positioniert die Linie genau auf der Kante */
+  top: -1px;   /* Sorgt dafür, dass die Linie von ganz oben... */
+  bottom: -1px;/* ...bis ganz unten reicht */
+  width: 1px;
+  background-color: var(--border);
+  z-index: 5; /* Hebt die Linie über den Hintergrund der Nachbarzelle */
+}
+
+/* z-index für Header muss die Hierarchie beibehalten */
 thead .col-sum-right { z-index: 21; }
 thead .col-sum-middle { z-index: 22; }
 thead .col-sum-left { z-index: 23; }
+/* --- ENDE FINALE LÖSUNG --- */
 
 
 tbody .tr.even .col-person:not([data-colored="1"]),
